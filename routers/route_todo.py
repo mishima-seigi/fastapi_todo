@@ -1,8 +1,8 @@
 from fastapi import APIRouter
-from fastapi import Request, Response , HTTPException, Depends
+from fastapi import Response, Request, HTTPException, Depends
 from fastapi.encoders import jsonable_encoder
 from schemas import Todo, TodoBody, SuccessMsg
-from database import db_collection_todo, db_get_todos, db_get_single_todo, db_update_todo, db_delete_todo
+from database import db_create_todo, db_get_todos, db_get_single_todo, db_update_todo, db_delete_todo
 from starlette.status import HTTP_201_CREATED
 from typing import List
 from fastapi_csrf_protect import CsrfProtect
@@ -11,12 +11,13 @@ from auth_utils import AuthJwtCsrf
 router = APIRouter()
 auth = AuthJwtCsrf()
 
+
 @router.post("/api/todo", response_model=Todo)
 async def create_todo(request: Request, response: Response, data: TodoBody, csrf_protect: CsrfProtect = Depends()):
     new_token = auth.verify_csrf_update_jwt(
         request, csrf_protect, request.headers)
     todo = jsonable_encoder(data)
-    res = await db_collection_todo(todo)
+    res = await db_create_todo(todo)
     response.status_code = HTTP_201_CREATED
     response.set_cookie(
         key="access_token", value=f"Bearer {new_token}", httponly=True, samesite="none", secure=True)
@@ -25,14 +26,16 @@ async def create_todo(request: Request, response: Response, data: TodoBody, csrf
     raise HTTPException(
         status_code=404, detail="Create task failed")
 
-@router.get("/api/todo", response_model=list[Todo])
+
+@router.get("/api/todo", response_model=List[Todo])
 async def get_todos(request: Request):
     auth.verify_jwt(request)
     res = await db_get_todos()
     return res
 
+
 @router.get("/api/todo/{id}", response_model=Todo)
-async def get_single_todo(request: Request,response: Response, id: str):
+async def get_single_todo(request: Request, response: Response, id: str):
     new_token, _ = auth.verify_update_jwt(request)
     res = await db_get_single_todo(id)
     response.set_cookie(
@@ -41,6 +44,7 @@ async def get_single_todo(request: Request,response: Response, id: str):
         return res
     raise HTTPException(
         status_code=404, detail=f"Task of ID:{id} doesn't exist")
+
 
 @router.put("/api/todo/{id}", response_model=Todo)
 async def update_todo(request: Request, response: Response, id: str, data: TodoBody, csrf_protect: CsrfProtect = Depends()):
@@ -55,6 +59,7 @@ async def update_todo(request: Request, response: Response, id: str, data: TodoB
     raise HTTPException(
         status_code=404, detail="Update task failed")
 
+
 @router.delete("/api/todo/{id}", response_model=SuccessMsg)
 async def delete_todo(request: Request, response: Response, id: str, csrf_protect: CsrfProtect = Depends()):
     new_token = auth.verify_csrf_update_jwt(
@@ -63,6 +68,6 @@ async def delete_todo(request: Request, response: Response, id: str, csrf_protec
     response.set_cookie(
         key="access_token", value=f"Bearer {new_token}", httponly=True, samesite="none", secure=True)
     if res:
-        return {"message": f"Task of ID:{id} deleted successfully"}
+        return {'message': 'Successfully deleted'}
     raise HTTPException(
-        status_code=404, detail=f"Task of ID:{id} doesn't exist")
+        status_code=404, detail="Delete task failed")
